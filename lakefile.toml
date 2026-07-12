@@ -1,0 +1,6 @@
+name = "camelcore"
+version = "0.1.0"
+defaultTargets = ["Camelcore"]
+
+[[lean_lib]]
+name = "Camelcore"
