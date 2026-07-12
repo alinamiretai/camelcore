@@ -29,9 +29,16 @@ def varCapEq (obs : Cap) (r₁ r₂ : Option (Nat × Cap)) : Prop :=
 def StoreCapEq (obs : Cap) (σ₁ σ₂ : Store) : Prop :=
   ∀ x, varCapEq obs (lookup σ₁ x) (lookup σ₂ x)
 
+/-- The observer-visible projection of an output log: keep only the tool-call
+    entries whose recipients the observer can read (readable obs entry.recipients).
+    An observer sees exactly the calls disclosed to it. -/
+noncomputable def visLog (obs : Cap) (log : List (Nat × List Nat × Cap)) :
+    List (Nat × List Nat × Cap) :=
+  log.filter (fun e => @decide (readable obs e.2.2) (Classical.propDecidable _))
+
 /-- States are observer-low-equivalent: equal output logs + equivalent stores. -/
 def CapLowEq (obs : Cap) (s₁ s₂ : State) : Prop :=
-  s₁.out = s₂.out ∧ StoreCapEq obs s₁.store s₂.store
+  visLog obs s₁.out = visLog obs s₂.out ∧ StoreCapEq obs s₁.store s₂.store
 
 end Camelcore
 
@@ -333,6 +340,70 @@ theorem step_preserves_capLowEq {obs : Cap} (st : Stmt) {s₁ s₂ : State}
       | false =>
         simp only [hdy]
         exact hstore y
-  | toolCall tool args rcpt => sorry
+  | toolCall tool args rcpt =>
+    -- store unchanged by toolCall; all content is in the visLog
+    have hstore' : StoreCapEq obs (step s₁ (Stmt.toolCall tool args rcpt)).store
+                                   (step s₂ (Stmt.toolCall tool args rcpt)).store := by
+      simp only [step]
+      by_cases ha : Admits s₁.store args rcpt <;>
+        (by_cases ha2 : Admits s₂.store args rcpt <;>
+          · simp only [ha, ha2, if_true, if_false] <;>
+            (cases lookupAll s₁.store args <;> cases lookupAll s₂.store args <;>
+              simp_all [hstore]))
+    refine ⟨?_, hstore'⟩
+    -- visLog agreement
+    simp only [step]
+    by_cases ha : Admits s₁.store args rcpt
+    · have ha2 : Admits s₂.store args rcpt := (admits_agree hstore args rcpt).mp ha
+      simp only [ha, ha2, if_true]
+      -- both admit; sub-case on lookupAll (defined by admits) and readability of rcpt
+      obtain ⟨vs₁, hlk₁, hflow₁⟩ := ha
+      obtain ⟨vs₂, hlk₂, hflow₂⟩ := ha2
+      simp only [hlk₁, hlk₂]
+      by_cases hr : readable obs rcpt
+      · -- rcpt readable: entries pass filter; must show values equal
+        have hallread : ∀ c ∈ vs₁.map (·.2), readable obs c := by
+          intro c hc
+          obtain ⟨vc, hvcmem, hvceq⟩ := List.mem_map.mp hc
+          have hf := hflow₁ vc hvcmem
+          -- vc.2 flows to rcpt, rcpt flows to obs ⇒ vc.2 flows to obs
+          unfold readable at hr ⊢
+          rw [← hvceq]
+          intro p hp
+          exact hf p (hr p hp)
+        have hvaleq : vs₁.map (·.1) = vs₂.map (·.1) :=
+          lookupAll_val_agree hstore args vs₁ vs₂ hlk₁ hlk₂ hallread
+        have hout' : List.filter (fun e => @decide (readable obs e.2.2) (Classical.propDecidable _)) s₁.out
+                   = List.filter (fun e => @decide (readable obs e.2.2) (Classical.propDecidable _)) s₂.out := hout
+        simp only [visLog, List.filter_append, hvaleq, hout']
+      · -- rcpt not readable: new entries filtered out of both visLogs
+        have hout' : List.filter (fun e => @decide (readable obs e.2.2) (Classical.propDecidable _)) s₁.out
+                   = List.filter (fun e => @decide (readable obs e.2.2) (Classical.propDecidable _)) s₂.out := hout
+        have hdf : @decide (readable obs rcpt) (Classical.propDecidable _) = false :=
+          decide_eq_false_iff_not.mpr hr
+        simp only [visLog, List.filter_append, List.filter_cons, hdf, Bool.false_eq_true,
+                   if_false, List.filter_nil, List.append_nil]
+        exact hout'
+    · have ha2 : ¬ Admits s₂.store args rcpt := fun h => ha ((admits_agree hstore args rcpt).mpr h)
+      simp only [ha, ha2, if_false]
+      cases lookupAll s₁.store args <;> cases lookupAll s₂.store args <;> exact hout
+
 
 end Camelcore
+
+namespace Camelcore
+
+/-- **CaMeL noninterference (the theorem).** For any observer capability, running a
+    plan on two observer-equivalent states yields observer-equivalent states: data
+    the observer cannot read cannot influence the tool calls it observes — for any
+    plan the (untrusted) Privileged LLM proposes. This is CaMeL's guarantee. -/
+theorem cap_noninterference {obs : Cap} (prog : List Stmt) {s₁ s₂ : State}
+    (h : CapLowEq obs s₁ s₂) : CapLowEq obs (run s₁ prog) (run s₂ prog) := by
+  unfold run
+  induction prog generalizing s₁ s₂ with
+  | nil => exact h
+  | cons st sts ih => exact ih (step_preserves_capLowEq st h)
+
+end Camelcore
+
+#print axioms Camelcore.cap_noninterference

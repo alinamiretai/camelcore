@@ -22,7 +22,7 @@ inductive Stmt where
 
 structure State where
   store : Store
-  out   : List (Nat × List Nat)
+  out   : List (Nat × List Nat × Cap)
 
 def lookupAll (σ : Store) : List Var → Option (List (Nat × Cap))
   | [] => some []
@@ -62,7 +62,7 @@ noncomputable def step (s : State) (st : Stmt) : State :=
   | .toolCall tool args rcpt =>
       if Admits s.store args rcpt then
         match lookupAll s.store args with
-        | some vs => { s with out := s.out ++ [(tool, vs.map (·.1))] }
+        | some vs => { s with out := s.out ++ [(tool, vs.map (·.1), rcpt)] }
         | none => s
       else s
 
