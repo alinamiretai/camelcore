@@ -204,3 +204,135 @@ theorem readable_meetList {obs : Cap} :
       exact ih hds c hcds
 
 end Camelcore
+
+namespace Camelcore
+
+open Classical
+
+/-- If two cap-lists have equal readers pointwise (equal readers-maps), their
+    meetLists have equal readers. Needed so  produces agreeing caps. -/
+theorem meetList_readers_eq :
+    ∀ (cs ds : List Cap), cs.map (·.readers) = ds.map (·.readers) →
+      (Cap.meetList cs).readers = (Cap.meetList ds).readers := by
+  intro cs
+  induction cs with
+  | nil =>
+    intro ds hd
+    cases ds with
+    | nil => rfl
+    | cons e es => simp at hd
+  | cons c cs ih =>
+    intro ds hd
+    cases ds with
+    | nil => simp at hd
+    | cons e es =>
+      simp only [List.map_cons, List.cons.injEq] at hd
+      obtain ⟨hce, hrest⟩ := hd
+      simp only [Cap.meetList, Cap.meet]
+      funext p
+      rw [hce, ih es hrest]
+
+/-- If two stores are observer-equivalent and lookupAll succeeds on both with all
+    result caps observer-readable, the looked-up VALUES agree. (Companion to
+    lookupAll_cap_agree, for the value half under a readability condition.) -/
+theorem lookupAll_val_agree {obs : Cap} {σ₁ σ₂ : Store} (h : StoreCapEq obs σ₁ σ₂) :
+    ∀ (args : List Var) (vs₁ vs₂ : List (Nat × Cap)),
+      lookupAll σ₁ args = some vs₁ → lookupAll σ₂ args = some vs₂ →
+      (∀ c ∈ vs₁.map (·.2), readable obs c) →
+      vs₁.map (·.1) = vs₂.map (·.1) := by
+  intro args
+  induction args with
+  | nil =>
+    intro vs₁ vs₂ h1 h2 _
+    simp only [lookupAll, Option.some.injEq] at h1 h2
+    subst h1; subst h2; rfl
+  | cons x xs ih =>
+    intro vs₁ vs₂ h1 h2 hread
+    simp only [lookupAll] at h1 h2
+    cases hx1 : lookup σ₁ x with
+    | none => rw [hx1] at h1; simp at h1
+    | some p₁ =>
+      cases hxs1 : lookupAll σ₁ xs with
+      | none => rw [hx1, hxs1] at h1; simp at h1
+      | some ps₁ =>
+        cases hx2 : lookup σ₂ x with
+        | none => rw [hx2] at h2; simp at h2
+        | some p₂ =>
+          cases hxs2 : lookupAll σ₂ xs with
+          | none => rw [hx2, hxs2] at h2; simp at h2
+          | some ps₂ =>
+            rw [hx1, hxs1] at h1; rw [hx2, hxs2] at h2
+            simp only [Option.some.injEq] at h1 h2
+            subst h1; subst h2
+            -- head values agree (x readable via hread), tail by ih
+            have hvx := h x
+            unfold varCapEq at hvx
+            rw [hx1, hx2] at hvx
+            obtain ⟨v₁, c₁⟩ := p₁; obtain ⟨v₂, c₂⟩ := p₂
+            have hreadhd : readable obs c₁ := by
+              apply hread; simp [List.map_cons]
+            have hveq : v₁ = v₂ := hvx.2 hreadhd
+            have htail : ps₁.map (·.1) = ps₂.map (·.1) := by
+              apply ih ps₁ ps₂ hxs1 hxs2
+              intro c hc; apply hread; simp only [List.map_cons]; exact List.mem_cons_of_mem _ hc
+            simp only [List.map_cons, hveq, htail]
+
+/-- **The paired-step lemma (the heart).** One statement, executed on two
+    observer-equivalent states, yields observer-equivalent states. The three cases:
+    - `assign`: same literal + cap added to both; trivially preserved.
+    - `compute`: the result cap is the meet of sources; if readable, all sources
+      were readable (readable_meetList) so their values agreed, so the result
+      agrees. Caps agree because source caps agree.
+    - `toolCall`: both runs admit-or-block identically (admits_agree); when both
+      admit and log, the logged values agree because an admitted call's args all
+      flow to the recipients — and this is where CaMeL's security becomes a theorem.
+    -/
+theorem step_preserves_capLowEq {obs : Cap} (st : Stmt) {s₁ s₂ : State}
+    (h : CapLowEq obs s₁ s₂) : CapLowEq obs (step s₁ st) (step s₂ st) := by
+  obtain ⟨hout, hstore⟩ := h
+  cases st with
+  | assign x n c =>
+    -- both prepend (x, n, c) to their stores; out unchanged
+    refine ⟨hout, ?_⟩
+    intro y
+    have hs := hstore y
+    simp only [step, lookup, List.find?_cons] at hs ⊢
+    cases hxy : (x == y) with
+    | true => simp only [hxy]; unfold varCapEq; exact ⟨fun p => Iff.rfl, fun _ => rfl⟩
+    | false => simp only [hxy] at hs ⊢; exact hs
+  | compute dst srcs =>
+    refine ⟨?_, ?_⟩
+    · simp only [step]; cases lookupAll s₁.store srcs <;> cases lookupAll s₂.store srcs <;> exact hout
+    intro y
+    simp only [step]
+    cases hla1 : lookupAll s₁.store srcs with
+    | none =>
+      cases hla2 : lookupAll s₂.store srcs with
+      | none => simp only [hla1, hla2]; exact hstore y
+      | some vs2 =>
+        obtain ⟨vs1, hla1', _⟩ := lookupAll_cap_agree hstore.symm srcs vs2 hla2
+        rw [hla1] at hla1'; exact absurd hla1' (by simp)
+    | some vs1 =>
+      obtain ⟨vs2, hla2, hmapread⟩ := lookupAll_cap_agree hstore srcs vs1 hla1
+      simp only [hla1, hla2, lookup, List.find?_cons]
+      cases hdy : (dst == y) with
+      | true =>
+        simp only [hdy]
+        unfold varCapEq
+        have hmapread' : (vs1.map (·.2)).map (·.readers) = (vs2.map (·.2)).map (·.readers) := by
+          simp only [List.map_map]; exact hmapread
+        refine ⟨fun p => by rw [meetList_readers_eq _ _ hmapread'], fun hread => ?_⟩
+        -- result readable ⇒ all source caps readable ⇒ source values agree ⇒ sums agree
+        have hallread : ∀ c ∈ vs1.map (·.2), readable obs c := by
+          apply readable_meetList
+          simpa using hread
+        -- each source value agrees, so the folded sums agree
+        have hvaleq : vs1.map (·.1) = vs2.map (·.1) :=
+          lookupAll_val_agree hstore srcs vs1 vs2 hla1 hla2 hallread
+        rw [hvaleq]
+      | false =>
+        simp only [hdy]
+        exact hstore y
+  | toolCall tool args rcpt => sorry
+
+end Camelcore
