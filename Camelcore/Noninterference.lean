@@ -109,3 +109,69 @@ theorem lookupAll_cap_agree {obs : Cap} {σ₁ σ₂ : Store} (h : StoreCapEq ob
         · rw [hx1] at hn1; simp at hn1
 
 end Camelcore
+
+namespace Camelcore
+
+/-- If two capabilities have the same readers (as predicates), one flows to a
+    target iff the other does. -/
+theorem flows_congr {c₁ c₂ t : Cap} (hc : c₁.readers = c₂.readers) :
+    Cap.flows c₁ t ↔ Cap.flows c₂ t := by
+  unfold Cap.flows
+  rw [hc]
+
+/-- Observer-equivalence of stores is symmetric. -/
+theorem StoreCapEq.symm {obs : Cap} {σ₁ σ₂ : Store} (h : StoreCapEq obs σ₁ σ₂) :
+    StoreCapEq obs σ₂ σ₁ := by
+  intro x
+  have hx := h x
+  unfold varCapEq at hx ⊢
+  cases h1 : lookup σ₁ x with
+  | none =>
+    cases h2 : lookup σ₂ x with
+    | none => trivial
+    | some p => rw [h1, h2] at hx; exact hx.elim
+  | some p₁ =>
+    cases h2 : lookup σ₂ x with
+    | none => rw [h1, h2] at hx; exact hx.elim
+    | some p₂ =>
+      rw [h1, h2] at hx
+      obtain ⟨v₁, c₁⟩ := p₁
+      obtain ⟨v₂, c₂⟩ := p₂
+      refine ⟨fun p => (hx.1 p).symm, fun hr => ?_⟩
+      -- readable obs c₂ → v₂ = v₁; from cap-agreement, readable obs c₂ ↔ readable obs c₁
+      have hcapeq : c₁.readers = c₂.readers := funext (fun p => propext (hx.1 p))
+      have : readable obs c₁ := by unfold readable Cap.flows at hr ⊢; rw [hcapeq]; exact hr
+      exact (hx.2 this).symm
+
+/-- **Gate agreement.** On observer-equivalent stores, the gate admits a tool call
+    in one run iff it admits it in the other: `Admits` inspects only capabilities,
+    which agree. -/
+theorem admits_agree {obs : Cap} {σ₁ σ₂ : Store} (h : StoreCapEq obs σ₁ σ₂)
+    (args : List Var) (rcpt : Recipients) :
+    Admits σ₁ args rcpt ↔ Admits σ₂ args rcpt := by
+  unfold Admits
+  constructor
+  · rintro ⟨vs₁, hlk₁, hflow₁⟩
+    obtain ⟨vs₂, hlk₂, hmap⟩ := lookupAll_cap_agree h args vs₁ hlk₁
+    refine ⟨vs₂, hlk₂, ?_⟩
+    -- caps of vs₂ match caps of vs₁ (via hmap on readers); flows transfers
+    intro vc₂ hvc₂
+    -- find the corresponding vc₁ with the same readers
+    have : vc₂.2.readers ∈ vs₂.map (·.2.readers) := List.mem_map_of_mem hvc₂
+    rw [← hmap] at this
+    obtain ⟨vc₁, hvc₁mem, hreadeq⟩ := List.mem_map.mp this
+    have := hflow₁ vc₁ hvc₁mem
+    exact (flows_congr hreadeq).mp this
+  · rintro ⟨vs₂, hlk₂, hflow₂⟩
+    -- symmetric: use StoreCapEq symmetry
+    have hsym : StoreCapEq obs σ₂ σ₁ := StoreCapEq.symm h
+    obtain ⟨vs₁, hlk₁, hmap⟩ := lookupAll_cap_agree hsym args vs₂ hlk₂
+    refine ⟨vs₁, hlk₁, ?_⟩
+    intro vc₁ hvc₁
+    have : vc₁.2.readers ∈ vs₁.map (·.2.readers) := List.mem_map_of_mem hvc₁
+    rw [← hmap] at this
+    obtain ⟨vc₂, hvc₂mem, hreadeq⟩ := List.mem_map.mp this
+    have := hflow₂ vc₂ hvc₂mem
+    exact (flows_congr hreadeq).mp this
+
+end Camelcore
