@@ -175,3 +175,32 @@ theorem admits_agree {obs : Cap} {σ₁ σ₂ : Store} (h : StoreCapEq obs σ₁
     exact (flows_congr hreadeq).mp this
 
 end Camelcore
+
+namespace Camelcore
+
+/-- If the meet of a list of caps is observer-readable, then every cap in the list
+    is observer-readable. (readable obs (meet cs) → ∀ c ∈ cs, readable obs c.)
+    This is why `compute` is safe: a readable result had only readable sources. -/
+theorem readable_meetList {obs : Cap} :
+    ∀ (cs : List Cap), readable obs (Cap.meetList cs) → ∀ c ∈ cs, readable obs c := by
+  intro cs
+  induction cs with
+  | nil => intro _ c hc; simp at hc
+  | cons d ds ih =>
+    intro hmeet c hc
+    -- meetList (d :: ds) = meet d (meetList ds); readable of meet → readable of both
+    unfold Cap.meetList at hmeet
+    unfold readable Cap.flows Cap.meet at hmeet
+    -- hmeet : ∀ p, obs.readers p → d.readers p ∧ (meetList ds).readers p
+    rcases List.mem_cons.mp hc with hcd | hcds
+    · subst hcd
+      unfold readable Cap.flows
+      intro p hp
+      exact (hmeet p hp).1
+    · have hds : readable obs (Cap.meetList ds) := by
+        unfold readable Cap.flows
+        intro p hp
+        exact (hmeet p hp).2
+      exact ih hds c hcds
+
+end Camelcore
