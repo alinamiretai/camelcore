@@ -24,7 +24,7 @@ Implementation Notice: All results below were discovered and mechanically checke
 | 2 | `plain_NI_is_false` | `Leak.lean` | Plain noninterference is false for the faithful STRICT-mode control-flow interpreter: a tool call inside a secret branch fires in one run and is denied in the other, so the secret leaks through the visible tool-call log. |
 | 3 | `nsu_noninterference` | `NSU.lean` | A repaired interpreter — pc-gated admission + a no-sensitive-upgrade write guard + failstop failures — satisfies termination-insensitive noninterference for every plan (no fragment restriction). |
 
-Result 2 is the centerpiece: it is a proof of a non-theorem, i.e. a
+Result 2 is the most significant result: it is a proof of a non-theorem, i.e. a
 formalized counterexample. It shows the leak is not a modeling artifact but the
 behavior of `interpreter.py` under a shipped, capability-only policy. 
 
