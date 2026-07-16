@@ -1,15 +1,15 @@
-# Camelcore — a machine-checked noninterference study of CaMeL
+# Camelcore: a machine-checked noninterference study of CaMeL
 
 A [Lean 4](https://leanprover.github.io/) formalization of the security core of
-**CaMeL** (Debenedetti et al., *Defeating Prompt Injections by Design*,
+CaMeL (Debenedetti et al., *Defeating Prompt Injections by Design*,
 [arXiv:2503.18813](https://arxiv.org/abs/2503.18813)). It models CaMeL's
-capability system and interpreter, proves what the design *does* guarantee,
-exhibits a *machine-checked counterexample* showing what it does **not**, and
+capability system and interpreter, proves what the design guarantees,
+exhibits a machine-checked counterexample showing what it does not, and
 proves a repaired interpreter that restores the missing guarantee for every plan.
 
 Everything here is checked by the Lean kernel. The three headline results depend
 only on the standard classical axioms `[propext, Classical.choice, Quot.sound]` —
-there are **no `sorry`s** anywhere in the development (verified via
+there are no `sorry`s anywhere in the development (verified via
 `#print axioms`, see below).
 
 ---
