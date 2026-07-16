@@ -19,10 +19,10 @@ There are no `sorry`s anywhere in the development (verified via
 | # | Theorem | File | Informal statement |
 |---|---------|------|--------------------|
 | 1 | `cap_noninterference` | `Noninterference.lean` | The two-sided capability semantics is noninterferent: low-equivalent inputs stay low-equivalent under any policy that enforces reader-flow. |
-| 2 | `plain_NI_is_false` | `Leak.lean` | **The leak.** Plain noninterference is *false* for the faithful STRICT-mode control-flow interpreter: a tool call inside a secret branch fires in one run and is denied in the other, so the secret leaks through the visible tool-call log. |
-| 3 | `nsu_noninterference` | `NSU.lean` | **The fix.** A repaired interpreter — pc-gated admission + a no-sensitive-upgrade write guard + failstop failures — satisfies *termination-insensitive* noninterference for **every** plan (no fragment restriction). |
+| 2 | `plain_NI_is_false` | `Leak.lean` | Plain noninterference is false for the faithful STRICT-mode control-flow interpreter: a tool call inside a secret branch fires in one run and is denied in the other, so the secret leaks through the visible tool-call log. |
+| 3 | `nsu_noninterference` | `NSU.lean` | A repaired interpreter — pc-gated admission + a no-sensitive-upgrade write guard + failstop failures — satisfies termination-insensitive noninterference for every plan (no fragment restriction). |
 
-Result 2 is the centerpiece: it is a proof of a *non-theorem*, i.e. a
+Result 2 is the centerpiece: it is a proof of a non-theorem, i.e. a
 formalized counterexample. It shows the leak is not a modeling artifact but the
 behavior of `interpreter.py` under a shipped, capability-only policy.
 
@@ -41,11 +41,11 @@ Layered bottom-up; each file imports only those above it.
 | `Model.lean` | Two-sided capabilities `Cap` (reader/source predicates), `Cap.meet`/`meetList`/`flows`, the `Store`, and `lookup`. |
 | `Plan.lean` | The plan language, `lookupAll`, `toolResultCap`, `ToolEnv`, `Policy`, and `SoundPolicy` (a policy plus its reader-flow guarantee). |
 | `Checker.lean` | The admit-check correctness lemma. |
-| `Noninterference.lean` | Straight-line capability semantics and **Result 1**, plus the reusable observer machinery (`readable`, `varCapEq`, `StoreCapEq`, `readable_meetList`, …). |
+| `Noninterference.lean` | Straight-line capability semantics and Result 1, plus the reusable observer machinery (`readable`, `varCapEq`, `StoreCapEq`, `readable_meetList`, …). |
 | `Control.lean` | pc-tainting control-flow interpreter faithful to `interpreter.py`: `CStmt`, `CState`, `pcCap`, `cstep`/`cstepList`/`crun`, and `visLog` (the recipient-filtered visible log). |
-| `Leak.lean` | The witness plan, the low-equivalence relation `CCapLowEq`, and **Result 2** (`plain_NI_is_false`). |
+| `Leak.lean` | The witness plan, the low-equivalence relation `CCapLowEq`, and Result 2 (`plain_NI_is_false`). |
 | `SafeFragment.lean` | Taint analysis and frame lemmas (`tainted`, `taintStep`, `cstep_frame`). Retained as infrastructure; the Layer-3 fragment-restricted proof was superseded by Layer 4. |
-| `NSU.lean` | The fixed interpreter and **Result 3**. Defines `AdmitsNSU`, `WriteOK`, `failNSU`, `cstepNSU`, the TINI relation `NSULowEq`, and the full preservation proof. |
+| `NSU.lean` | The fixed interpreter and Result 3. Defines `AdmitsNSU`, `WriteOK`, `failNSU`, `cstepNSU`, the TINI relation `NSULowEq`, and the full preservation proof. |
 
 ---
 
@@ -84,7 +84,7 @@ is what makes the fixed semantics provable where the original is not.
 relation implies equal visible logs.
 
 Points 2 and 3 are findings in their own right — they are properties the
-mechanization *forced*, not choices made up front, and they are exactly the kind
+mechanization forced, not choices made up front, and they are exactly the kind
 of subtlety a machine-checked proof exists to catch.
 
 ---
@@ -98,7 +98,7 @@ lake build                      # builds the whole development
 lake build Camelcore.NSU        # builds Layer 4 and prints the axiom audit
 ```
 
-A successful build prints, with **no `sorryAx`**:
+A successful build prints, with no `sorryAx`:
 
 ```
 'Camelcore.cap_noninterference'       depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -121,7 +121,7 @@ To re-audit any result directly:
   List Nat → Nat`; the results concern information flow, not tool side effects.
 - **Policy soundness.** `SoundPolicy` bundles a policy with a proof that
   admitting a call implies each argument capability may flow to the recipients —
-  the exact side condition under which noninterference holds for *any* policy.
+  the exact side condition under which noninterference holds for any policy.
 - **Values are naturals; the store is an association list.** The capability
   reasoning is independent of the value domain.
 - **Observer model.** An observer is a capability `obs`; it sees a tool-call log
@@ -129,7 +129,7 @@ To re-audit any result directly:
   assumes the observer is non-degenerate (reads at least one principal), which is
   the only setting in which noninterference is a non-vacuous requirement.
 
-The formalization targets the *security core* — the capability calculus and the
+The formalization targets the security core — the capability calculus and the
 control-flow interpreter — not the full Python surface (quarantined-LLM parsing,
 the value graph, error message construction). Two source-level findings outside
 the core are noted for the authors rather than modeled: an f-string in the
