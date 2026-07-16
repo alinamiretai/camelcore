@@ -16,6 +16,8 @@ There are no `sorry`s anywhere in the development (verified via
 
 ## The three results
 
+Implementation Notice: All results below were discovered and mechanically checked using a faithful mathematical twin of the CaMeL interpreter inside Lean 4. While these proofs settle the underlying logic of the design, direct integration and testing within the live Python package remain separate engineering tasks.
+
 | # | Theorem | File | Informal statement |
 |---|---------|------|--------------------|
 | 1 | `cap_noninterference` | `Noninterference.lean` | The two-sided capability semantics is noninterferent: low-equivalent inputs stay low-equivalent under any policy that enforces reader-flow. |
@@ -24,7 +26,7 @@ There are no `sorry`s anywhere in the development (verified via
 
 Result 2 is the centerpiece: it is a proof of a non-theorem, i.e. a
 formalized counterexample. It shows the leak is not a modeling artifact but the
-behavior of `interpreter.py` under a shipped, capability-only policy.
+behavior of `interpreter.py` under a shipped, capability-only policy. 
 
 Result 3 is the remedy the CaMeL papers' future-work sections asked for: the
 classical dynamic information-flow-control discipline (Austin–Flanagan
