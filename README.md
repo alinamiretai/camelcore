@@ -8,8 +8,8 @@ exhibits a machine-checked counterexample showing what it does not, and
 proves a repaired interpreter that restores the missing guarantee for every plan.
 
 Everything here is checked by the Lean kernel. The three headline results depend
-only on the standard classical axioms `[propext, Classical.choice, Quot.sound]` —
-there are no `sorry`s anywhere in the development (verified via
+only on the standard classical axioms `[propext, Classical.choice, Quot.sound]`. 
+There are no `sorry`s anywhere in the development (verified via
 `#print axioms`, see below).
 
 ---
